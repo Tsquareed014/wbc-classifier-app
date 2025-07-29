@@ -1,0 +1,16 @@
+# Byte‑compiled / cache
+__pycache__/
+*.py[cod]
+
+# Virtualenvs & IDE
+.env/
+venv/
+*.vscode/
+.idea/
+
+# Model artifacts (you can track these separately, or use Git LFS)
+models/
+
+# OS / misc
+.DS_Store
+Thumbs.db
