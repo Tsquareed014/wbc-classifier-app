@@ -8,8 +8,8 @@ venv/
 *.vscode/
 .idea/
 
-# Model artifacts (you can track these separately, or use Git LFS)
-models/
+# Model artifacts 
+#models/
 
 # OS / misc
 .DS_Store
