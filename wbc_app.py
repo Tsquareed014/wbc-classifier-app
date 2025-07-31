@@ -1,4 +1,3 @@
-
 import streamlit as st
 import zipfile, time, os
 import pandas as pd
@@ -97,6 +96,8 @@ if results:
 
     if labels_df is not None:
         evaluate_predictions(df, labels_df, class_labels, st)
+        st.subheader("Evaluation Report")
+        st.dataframe(df)  # Display the evaluation results from evaluate_predictions
 
     idx = st.number_input("Select Image Index", 0, len(results)-1, 0)
     selected = results[idx]
