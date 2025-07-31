@@ -9,8 +9,11 @@ def evaluate_predictions(df, labels_df, class_labels, st):
     labels_df['Filename'] = labels_df['Filename'].apply(lambda x: os.path.basename(str(x).strip().lower()))
     merged_df = pd.merge(df, labels_df, on='Filename', how='inner')
     
+    # Select only Arrow-compatible columns for display
+    display_df = merged_df[['Filename', 'Prediction', 'Class', 'Confidence']].copy()
+    
     # Display merged data
-    st.dataframe(merged_df)
+    st.dataframe(display_df)
     
     # Use 'Class' to match the CSV column name
     y_true = merged_df['Class']
