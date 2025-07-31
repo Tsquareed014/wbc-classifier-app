@@ -4,6 +4,9 @@ from sklearn.metrics import classification_report
 from visualization import plot_confusion_matrix
 
 def evaluate_predictions(df, labels_df, class_labels, st):
+    # Normalize filenames before merging
+    df['Filename'] = df['Filename'].apply(lambda x: os.path.basename(str(x).strip().lower()))
+    labels_df['Filename'] = labels_df['Filename'].apply(lambda x: os.path.basename(str(x).strip().lower()))
     merged_df = pd.merge(df, labels_df, on='Filename')
     st.dataframe(merged_df)
     y_true = merged_df['class']
