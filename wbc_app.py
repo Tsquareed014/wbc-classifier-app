@@ -40,7 +40,7 @@ normalization = st.sidebar.selectbox("Normalization Method", ["0-1", "mean-std"]
 image_url = st.sidebar.text_input("Image URL")
 
 labels_file = st.sidebar.file_uploader("Upload true labels CSV (optional)", type=["csv"])
-labels_df = pd.read_csv(labels_file) if labels_file else None
+labels_df = pd.read_csv(labels_file) if labels_file and labels_file.type == "text/csv" else None
 
 # Define the class labels
 class_labels = ['Neutrophil', 'Eosinophil', 'Basophil', 'Lymphocyte', 'Monocyte']
@@ -97,7 +97,8 @@ if results:
     if labels_df is not None:
         evaluate_predictions(df, labels_df, class_labels, st)
         st.subheader("Evaluation Report")
-        st.dataframe(df)  # Display the evaluation results from evaluate_predictions
+        # Use merged_df from evaluate_predictions for consistency
+        # Note: merged_df is not returned, so we rely on st.dataframe from evaluate_predictions
 
     idx = st.number_input("Select Image Index", 0, len(results)-1, 0)
     selected = results[idx]
