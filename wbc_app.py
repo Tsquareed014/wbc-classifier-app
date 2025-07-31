@@ -96,9 +96,6 @@ if results:
 
     if labels_df is not None:
         evaluate_predictions(df, labels_df, class_labels, st)
-        st.subheader("Evaluation Report")
-        # Use merged_df from evaluate_predictions for consistency
-        # Note: merged_df is not returned, so we rely on st.dataframe from evaluate_predictions
 
     idx = st.number_input("Select Image Index", 0, len(results)-1, 0)
     selected = results[idx]
