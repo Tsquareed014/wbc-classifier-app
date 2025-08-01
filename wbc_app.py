@@ -73,7 +73,8 @@ if uploaded_file:
                 if fname.lower().endswith((".jpg", ".jpeg", ".png")):
                     with z.open(fname) as f:
                         image = Image.open(f).convert("RGB")
-                        result = process_image(image, fname)
+                        base_name = os.path.basename(fname)
+                        result = process_image(image, base_name)
                         if result:
                             results.append(result)
     else:
