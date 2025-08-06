@@ -27,10 +27,15 @@ apply_text_size(text_size_percent)
 
 # ─── Sidebar: About & PDF Guide ────────────────────────────────
 GUIDE_PATH = "WBC_Classifier_User_Guide_App.pdf"
-def load_pdf(path):
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    return f'<a href="data:application/pdf;base64,{b64}" target="_blank">Download Full User Guide</a>'
+# PDF download button
+with open(GUIDE_PATH, "rb") as f:
+    guide_bytes = f.read()
+st.sidebar.download_button(
+    label="📄 Download User Guide",
+    data=guide_bytes,
+    file_name="WBC_Classifier_User_Guide_App.pdf",
+    mime="application/pdf"
+)
 
 st.sidebar.title("About")
 st.sidebar.markdown(load_pdf(GUIDE_PATH), unsafe_allow_html=True)
