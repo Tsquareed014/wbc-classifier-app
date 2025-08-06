@@ -154,28 +154,8 @@ if results:
     overlay_img = overlay_saliency(np.array(sel["Original"]), sel["Saliency"])
     st.image(overlay_img, caption="Saliency Map", width=300)
 
-    # ─── Inject JS for Arrow‐Key → click Prev/Next ─────────────────────────────
-    st.markdown(
-        """
-        <script>
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'ArrowLeft') {
-            // click first button on page (our "← Previous")
-            const btn1 = document.querySelector('button');
-            if (btn1) btn1.click();
-          }
-          if (e.key === 'ArrowRight') {
-            // click the second button on page (our "Next →")
-            const btns = document.querySelectorAll('button');
-            if (btns.length > 1) btns[1].click();
-          }
-        });
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
-
 # ─── Footer: Memory Usage ─────────────────────────────────────────────────────
 st.sidebar.write(f"Memory Usage: {monitor_memory_usage():.2f} MB")
+
 
 
