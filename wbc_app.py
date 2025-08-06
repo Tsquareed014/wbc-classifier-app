@@ -17,69 +17,73 @@ from visualization import generate_saliency_map, overlay_saliency
 from evaluation import evaluate_predictions
 from utils import export_results_to_csv
 
-# ─── New imports ──────────────────────────────────────────────
-from keyboard_nav import arrow_key_nav
-from styles import apply_text_size
+# ─── Helper to load & embed PDF ────────────────────────────────────────────────
+def load_pdf(path: str) -> str:
+    """Return an HTML <iframe> snippet embedding the PDF at `path`."""
+    with open(path, "rb") as f:
+        pdf_bytes = f.read()
+    b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    return (
+        f'<iframe src="data:application/pdf;base64,{b64}" '
+        'width="100%" height="400px" style="border: none;"></iframe>'
+    )
 
-# ─── Sidebar: Text Size ────────────────────────────────────────
-text_size_percent = st.sidebar.slider("Text Size (%)", 50, 200, 100)
-apply_text_size(text_size_percent)
-
-# ─── Sidebar: About & PDF Guide ────────────────────────────────
+# ─── Path to your user‐guide PDF (must live in the repo root) ──────────────────
 GUIDE_PATH = "WBC_Classifier_User_Guide_App.pdf"
-# PDF download button
+
+# ─── Sidebar: About & PDF ─────────────────────────────────────────────────────
+st.sidebar.title("About")
+st.sidebar.markdown(load_pdf(GUIDE_PATH), unsafe_allow_html=True)
+
+# real download button below the embedded preview:
 with open(GUIDE_PATH, "rb") as f:
     guide_bytes = f.read()
 st.sidebar.download_button(
     label="📄 Download User Guide",
     data=guide_bytes,
     file_name="WBC_Classifier_User_Guide_App.pdf",
-    mime="application/pdf"
+    mime="application/pdf",
 )
 
-st.sidebar.title("About")
-st.sidebar.markdown(load_pdf(GUIDE_PATH), unsafe_allow_html=True)
-
-# ─── Sidebar: Model & Settings ─────────────────────────────────
+# ─── Sidebar: Settings & Model ────────────────────────────────────────────────
 st.sidebar.header("Settings & Model")
 model_manager = ModelManager({
-    "Enhanced CNN (v2)":             "models/enhanced_cnnv2.keras",
-    "MobileNetV2 Head-only":        "models/mobilenet_v2_head_manual.keras",
-    "MobileNetV2 Fine-tuned":       "models/mobilenet_v2_finetuned_manual.keras"
+    "Enhanced CNN (v2)": "models/enhanced_cnnv2.keras",
+    "MobileNetV2 Head‐only": "models/mobilenet_v2_head_manual.keras",
+    "MobileNetV2 Fine‐tuned":    "models/mobilenet_v2_finetuned_manual.keras"
 })
-
-model_choice   = st.sidebar.selectbox("Choose Model", list(model_manager.available_models.keys()))
-uploaded_model = st.sidebar.file_uploader("Or Upload a Custom Model", type=["keras"])
+model_choice    = st.sidebar.selectbox("Choose Model", list(model_manager.available_models.keys()))
+uploaded_model  = st.sidebar.file_uploader("Or upload your custom model", type=["keras"])
 if uploaded_model:
     model = model_manager.upload_custom_model(uploaded_model)
 else:
     model = model_manager.load_model_by_name(model_choice)
 
-confidence_slider    = ConfidenceSlider()
+# confidence slider
+confidence_slider   = ConfidenceSlider()
 confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.5, 0.01)
 confidence_slider.adjust_threshold(confidence_threshold)
 
-normalization = st.sidebar.selectbox("Normalization Method", ["0–1", "mean–std"])
-image_url     = st.sidebar.text_input("Image URL (optional)")
+# normalization choice & optional URL
+normalization = st.sidebar.selectbox("Normalization Method", ["0-1", "mean-std"])
+image_url     = st.sidebar.text_input("Image URL")
 
-labels_file = st.sidebar.file_uploader("Upload True Labels CSV (optional)", type=["csv"])
-labels_df   = pd.read_csv(labels_file) if labels_file and labels_file.type == "text/csv" else None
+# optional labels CSV for evaluation
+labels_file = st.sidebar.file_uploader("Upload true labels CSV (optional)", type=["csv"])
+labels_df   = pd.read_csv(labels_file) if labels_file and labels_file.type=="text/csv" else None
 
-st.sidebar.write(f"Memory Usage: {monitor_memory_usage():.2f} MB")
-
-# ─── Main App ───────────────────────────────────────────────────
-st.title("White Blood Cell Classifier")
-
+# ─── Main ─────────────────────────────────────────────────────────────────────
+class_labels = ['Neutrophil','Eosinophil','Basophil','Lymphocyte','Monocyte']
+st.title("WBC Classification Application")
 uploaded_file = st.file_uploader("Upload Image or ZIP", type=["jpg","jpeg","png","zip"])
-class_labels  = ['Neutrophil','Eosinophil','Basophil','Lymphocyte','Monocyte']
 
-def process_image(image: Image.Image, filename: str):
+def process_image(image, filename):
     arr, orig = preprocess_image(image, normalization=normalization)
     tensor    = tf.convert_to_tensor(arr, dtype=tf.float32)
     idx, conf, _ = classify_image(model, tensor)
     if conf < confidence_slider.threshold:
         return None
-    label   = class_labels[idx]
+    label    = class_labels[idx]
     saliency = generate_saliency_map(model, tensor, idx)
     return {
         "Filename": filename,
@@ -90,62 +94,66 @@ def process_image(image: Image.Image, filename: str):
     }
 
 results = []
-# from URL
+# via URL
 if image_url:
     try:
-        img    = load_image_from_url(image_url)
-        result = process_image(img, image_url)
+        image  = load_image_from_url(image_url)
+        result = process_image(image, image_url)
         if result: results.append(result)
     except Exception:
-        st.warning("Couldn't load image from URL.")
+        st.warning("Couldn't fetch image from that URL.")
 
-# from upload
+# via file upload
 if uploaded_file:
     if uploaded_file.type == "application/zip":
         with zipfile.ZipFile(uploaded_file, "r") as z:
             for fname in z.namelist():
-                if fname.lower().endswith((".jpg","jpeg","png")):
+                if fname.lower().endswith((".jpg",".jpeg",".png")):
                     with z.open(fname) as f:
                         img = Image.open(f).convert("RGB")
-                        res = process_image(img, os.path.basename(fname))
-                        if res: results.append(res)
+                        base = os.path.basename(fname)
+                        r = process_image(img, base)
+                        if r: results.append(r)
     else:
         img = Image.open(uploaded_file).convert("RGB")
-        res = process_image(img, uploaded_file.name)
-        if res: results.append(res)
+        r   = process_image(img, uploaded_file.name)
+        if r: results.append(r)
 
+# show results
 if results:
     df = pd.DataFrame(results)
     st.subheader("Classification Results")
     st.dataframe(df[['Filename','Prediction','Confidence']])
     export_results_to_csv(df[['Filename','Prediction','Confidence']])
 
-    if len(df) > 1:
+    if len(df)>1:
         summary = (
             df['Prediction']
             .value_counts()
             .rename_axis('Class')
             .reset_index(name='Count')
         )
-        summary['Percent'] = (summary['Count'] / summary['Count'].sum() * 100).round(2)
+        summary['Percent'] = (summary['Count']/summary['Count'].sum()*100).round(2)
         st.subheader("Batch Summary")
         st.table(summary)
 
     if labels_df is not None:
         evaluate_predictions(df, labels_df, class_labels, st)
 
-    # ←/→ arrow-key & click navigation
-    idx = arrow_key_nav(len(results) - 1)
+    idx = st.number_input("Select Image Index", 0, len(results)-1, 0)
     sel = results[idx]
 
-    # Show original
+    # original
     buf = BytesIO()
     sel["Original"].save(buf, format="PNG")
     b64 = base64.b64encode(buf.getvalue()).decode()
-    st.markdown(f'<img src="data:image/png;base64,{b64}" width="300" />', unsafe_allow_html=True)
+    st.markdown(f'<img src="data:image/png;base64,{b64}" width="300">', unsafe_allow_html=True)
 
-    # Show saliency
+    # saliency
     overlay_img = overlay_saliency(np.array(sel["Original"]), sel["Saliency"])
     st.image(overlay_img, caption="Saliency Map", width=300)
+
+# performance
+st.sidebar.write(f"Memory Usage: {monitor_memory_usage():.2f} MB")
 
 
