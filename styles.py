@@ -4,14 +4,17 @@ import streamlit as st
 
 def apply_text_size(text_size_percent: int):
     """
-    Inject CSS to globally scale text size by a percentage.
+    Inject CSS to scale the app’s base font size by a percentage.
     """
-    css = f"""
-    <style>
-    /* Scale base font size */
-    html, body, [class*="css"], .stApp {{
-        font-size: {text_size_percent}% !important;
-    }}
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <style>
+        /* Scale all text in the app */
+        html, body, [class*="css"], .stApp {{
+            font-size: {text_size_percent}% !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
