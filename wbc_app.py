@@ -1,5 +1,5 @@
 import streamlit as st
-import zipfile, time, os
+import zipfile, os
 import pandas as pd
 import numpy as np
 from PIL import Image
@@ -17,109 +17,101 @@ from visualization import generate_saliency_map, overlay_saliency
 from evaluation import evaluate_predictions
 from utils import export_results_to_csv
 
-# ─── Helper to load & embed PDF ────────────────────────────────────────────────
+# ─── PDF embed & download helper ─────────────────────────────────────────────
 def load_pdf(path: str) -> str:
-    """Return an HTML <iframe> snippet embedding the PDF at `path`."""
-    with open(path, "rb") as f:
-        pdf_bytes = f.read()
-    b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    b = open(path, "rb").read()
+    b64 = base64.b64encode(b).decode("utf-8")
     return (
         f'<iframe src="data:application/pdf;base64,{b64}" '
-        'width="100%" height="400px" style="border: none;"></iframe>'
+        'width="100%" height="300px" style="border: none;"></iframe>'
     )
 
-# ─── Path to your user‐guide PDF (must live in the repo root) ──────────────────
 GUIDE_PATH = "WBC_Classifier_User_Guide_App.pdf"
 
-# ─── Sidebar: About & PDF ─────────────────────────────────────────────────────
+# ─── Sidebar: About & User Guide ──────────────────────────────────────────────
 st.sidebar.title("About")
 st.sidebar.markdown(load_pdf(GUIDE_PATH), unsafe_allow_html=True)
-
-# real download button below the embedded preview:
 with open(GUIDE_PATH, "rb") as f:
     guide_bytes = f.read()
 st.sidebar.download_button(
-    label="📄 Download User Guide",
+    "📄 Download User Guide",
     data=guide_bytes,
-    file_name="WBC_Classifier_User_Guide_App.pdf",
-    mime="application/pdf",
+    file_name=os.path.basename(GUIDE_PATH),
+    mime="application/pdf"
 )
 
-# ─── Sidebar: Settings & Model ────────────────────────────────────────────────
+# ─── Sidebar: Model & Settings ───────────────────────────────────────────────
 st.sidebar.header("Settings & Model")
 model_manager = ModelManager({
-    "Enhanced CNN (v2)": "models/enhanced_cnnv2.keras",
-    "MobileNetV2 Head‐only": "models/mobilenet_v2_head_manual.keras",
-    "MobileNetV2 Fine‐tuned":    "models/mobilenet_v2_finetuned_manual.keras"
+    "Enhanced CNN (v2)":              "models/enhanced_cnnv2.keras",
+    "MobileNetV2 Head-only":          "models/mobilenet_v2_head_manual.keras",
+    "MobileNetV2 Fine-tuned":         "models/mobilenet_v2_finetuned_manual.keras"
 })
-model_choice    = st.sidebar.selectbox("Choose Model", list(model_manager.available_models.keys()))
-uploaded_model  = st.sidebar.file_uploader("Or upload your custom model", type=["keras"])
+model_choice   = st.sidebar.selectbox("Choose Model", list(model_manager.available_models.keys()))
+uploaded_model = st.sidebar.file_uploader("Or upload your custom model", type=["keras"])
 if uploaded_model:
     model = model_manager.upload_custom_model(uploaded_model)
 else:
     model = model_manager.load_model_by_name(model_choice)
 
-# confidence slider
-confidence_slider   = ConfidenceSlider()
+confidence_slider    = ConfidenceSlider()
 confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.5, 0.01)
 confidence_slider.adjust_threshold(confidence_threshold)
 
-# normalization choice & optional URL
 normalization = st.sidebar.selectbox("Normalization Method", ["0-1", "mean-std"])
 image_url     = st.sidebar.text_input("Image URL")
 
-# optional labels CSV for evaluation
 labels_file = st.sidebar.file_uploader("Upload true labels CSV (optional)", type=["csv"])
 labels_df   = pd.read_csv(labels_file) if labels_file and labels_file.type=="text/csv" else None
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
-class_labels = ['Neutrophil','Eosinophil','Basophil','Lymphocyte','Monocyte']
 st.title("WBC Classification Application")
 uploaded_file = st.file_uploader("Upload Image or ZIP", type=["jpg","jpeg","png","zip"])
 
-def process_image(image, filename):
+CLASS_LABELS = ['Neutrophil','Eosinophil','Basophil','Lymphocyte','Monocyte']
+
+def process_image(image: Image.Image, name: str):
     arr, orig = preprocess_image(image, normalization=normalization)
     tensor    = tf.convert_to_tensor(arr, dtype=tf.float32)
     idx, conf, _ = classify_image(model, tensor)
     if conf < confidence_slider.threshold:
         return None
-    label    = class_labels[idx]
-    saliency = generate_saliency_map(model, tensor, idx)
+    sal = generate_saliency_map(model, tensor, idx)
     return {
-        "Filename": filename,
-        "Prediction": label,
+        "Filename":   name,
+        "Prediction": CLASS_LABELS[idx],
         "Confidence": conf,
-        "Original": orig,
-        "Saliency": saliency
+        "Original":   orig,
+        "Saliency":   sal
     }
 
 results = []
+
 # via URL
 if image_url:
     try:
-        image  = load_image_from_url(image_url)
-        result = process_image(image, image_url)
-        if result: results.append(result)
+        img = load_image_from_url(image_url)
+        r   = process_image(img, image_url)
+        if r: results.append(r)
     except Exception:
-        st.warning("Couldn't fetch image from that URL.")
+        st.warning("Couldn't load image from URL.")
 
-# via file upload
+# via upload
 if uploaded_file:
-    if uploaded_file.type == "application/zip":
+    if uploaded_file.type=="application/zip":
         with zipfile.ZipFile(uploaded_file, "r") as z:
             for fname in z.namelist():
                 if fname.lower().endswith((".jpg",".jpeg",".png")):
                     with z.open(fname) as f:
                         img = Image.open(f).convert("RGB")
-                        base = os.path.basename(fname)
-                        r = process_image(img, base)
+                        r   = process_image(img, os.path.basename(fname))
                         if r: results.append(r)
     else:
         img = Image.open(uploaded_file).convert("RGB")
         r   = process_image(img, uploaded_file.name)
         if r: results.append(r)
 
-# show results
+# display
 if results:
     df = pd.DataFrame(results)
     st.subheader("Classification Results")
@@ -127,33 +119,46 @@ if results:
     export_results_to_csv(df[['Filename','Prediction','Confidence']])
 
     if len(df)>1:
-        summary = (
-            df['Prediction']
-            .value_counts()
-            .rename_axis('Class')
-            .reset_index(name='Count')
-        )
-        summary['Percent'] = (summary['Count']/summary['Count'].sum()*100).round(2)
+        cnt = df['Prediction'].value_counts().rename_axis('Class').reset_index(name='Count')
+        cnt['Percent'] = (cnt['Count']/cnt['Count'].sum()*100).round(2)
         st.subheader("Batch Summary")
-        st.table(summary)
+        st.table(cnt)
 
     if labels_df is not None:
-        evaluate_predictions(df, labels_df, class_labels, st)
+        evaluate_predictions(df, labels_df, CLASS_LABELS, st)
 
-    idx = st.number_input("Select Image Index", 0, len(results)-1, 0)
-    sel = results[idx]
+    # ─── Index state & buttons ──────────────────────────────────────────────
+    if 'idx' not in st.session_state:
+        st.session_state.idx = 0
 
-    # original
+    prev_col, mid_col, next_col = st.columns([1,2,1])
+    with prev_col:
+        if st.button("← Previous"):
+            st.session_state.idx = max(0, st.session_state.idx-1)
+    with next_col:
+        if st.button("Next →"):
+            st.session_state.idx = min(len(results)-1, st.session_state.idx+1)
+    with mid_col:
+        st.write(f"Image {st.session_state.idx+1} of {len(results)}")
+
+    sel = results[st.session_state.idx]
+
+    # show original
     buf = BytesIO()
     sel["Original"].save(buf, format="PNG")
     b64 = base64.b64encode(buf.getvalue()).decode()
     st.markdown(f'<img src="data:image/png;base64,{b64}" width="300">', unsafe_allow_html=True)
 
-    # saliency
+    # show saliency
     overlay_img = overlay_saliency(np.array(sel["Original"]), sel["Saliency"])
     st.image(overlay_img, caption="Saliency Map", width=300)
 
-# performance
-st.sidebar.write(f"Memory Usage: {monitor_memory_usage():.2f} MB")
+    # ─── Inject JS for arrow-key navigation ─────────────────────────────────
+    st.markdown("""
+    <script>
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'ArrowLeft') {
+        const btn = document.querySelector('
+::contentReference[oaicite:0]{index=0}
 
 
