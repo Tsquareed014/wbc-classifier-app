@@ -17,35 +17,30 @@ from visualization import generate_saliency_map, overlay_saliency
 from evaluation import evaluate_predictions
 from utils import export_results_to_csv
 
-# New imports for styling, arrow-key navigation, and PDF guide
-from styles import apply_text_size
+# ─── New imports ──────────────────────────────────────────────
 from keyboard_nav import arrow_key_nav
+from styles import apply_text_size
 
-# Apply your global text sizing adjustments
-apply_text_size()
+# ─── Sidebar: Text Size ────────────────────────────────────────
+text_size_percent = st.sidebar.slider("Text Size (%)", 50, 200, 100)
+apply_text_size(text_size_percent)
 
-# Path to your user-guide PDF (must live in repo root)
+# ─── Sidebar: About & PDF Guide ────────────────────────────────
 GUIDE_PATH = "WBC_Classifier_User_Guide_App.pdf"
-
 def load_pdf(path):
-    """Load a PDF from disk and return an HTML link to download it."""
     with open(path, "rb") as f:
-        data = f.read()
-    b64 = base64.b64encode(data).decode()
-    href = f'<a href="data:application/pdf;base64,{b64}" target="_blank">' \
-           "Download the Full User Guide</a>"
-    return href
-
-# ─── Sidebar: About & Settings ─────────────────────────────────────────────────
+        b64 = base64.b64encode(f.read()).decode()
+    return f'<a href="data:application/pdf;base64,{b64}" target="_blank">Download Full User Guide</a>'
 
 st.sidebar.title("About")
 st.sidebar.markdown(load_pdf(GUIDE_PATH), unsafe_allow_html=True)
 
+# ─── Sidebar: Model & Settings ─────────────────────────────────
 st.sidebar.header("Settings & Model")
 model_manager = ModelManager({
-    "Enhanced CNN (v2)": "models/enhanced_cnnv2.keras",
-    "MobileNetV2 Head-only": "models/mobilenet_v2_head_manual.keras",
-    "MobileNetV2 Fine-tuned": "models/mobilenet_v2_finetuned_manual.keras"
+    "Enhanced CNN (v2)":             "models/enhanced_cnnv2.keras",
+    "MobileNetV2 Head-only":        "models/mobilenet_v2_head_manual.keras",
+    "MobileNetV2 Fine-tuned":       "models/mobilenet_v2_finetuned_manual.keras"
 })
 
 model_choice   = st.sidebar.selectbox("Choose Model", list(model_manager.available_models.keys()))
@@ -67,8 +62,7 @@ labels_df   = pd.read_csv(labels_file) if labels_file and labels_file.type == "t
 
 st.sidebar.write(f"Memory Usage: {monitor_memory_usage():.2f} MB")
 
-# ─── Main App ───────────────────────────────────────────────────────────────────
-
+# ─── Main App ───────────────────────────────────────────────────
 st.title("White Blood Cell Classifier")
 
 uploaded_file = st.file_uploader("Upload Image or ZIP", type=["jpg","jpeg","png","zip"])
@@ -91,12 +85,11 @@ def process_image(image: Image.Image, filename: str):
     }
 
 results = []
-
 # from URL
 if image_url:
     try:
-        image  = load_image_from_url(image_url)
-        result = process_image(image, image_url)
+        img    = load_image_from_url(image_url)
+        result = process_image(img, image_url)
         if result: results.append(result)
     except Exception:
         st.warning("Couldn't load image from URL.")
@@ -120,7 +113,6 @@ if results:
     df = pd.DataFrame(results)
     st.subheader("Classification Results")
     st.dataframe(df[['Filename','Prediction','Confidence']])
-
     export_results_to_csv(df[['Filename','Prediction','Confidence']])
 
     if len(df) > 1:
@@ -137,21 +129,18 @@ if results:
     if labels_df is not None:
         evaluate_predictions(df, labels_df, class_labels, st)
 
-    # ←/→ arrow-key navigation
+    # ←/→ arrow-key & click navigation
     idx = arrow_key_nav(len(results) - 1)
-    selected = results[idx]
+    sel = results[idx]
 
-    # display original + saliency
-    orig = selected["Original"]
-    buf  = BytesIO()
-    orig.save(buf, format="PNG")
-    b64  = base64.b64encode(buf.getvalue()).decode()
-    st.markdown(
-        f'<img src="data:image/png;base64,{b64}" width="300" />',
-        unsafe_allow_html=True
-    )
+    # Show original
+    buf = BytesIO()
+    sel["Original"].save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    st.markdown(f'<img src="data:image/png;base64,{b64}" width="300" />', unsafe_allow_html=True)
 
-    overlay_img = overlay_saliency(np.array(orig), selected["Saliency"])
+    # Show saliency
+    overlay_img = overlay_saliency(np.array(sel["Original"]), sel["Saliency"])
     st.image(overlay_img, caption="Saliency Map", width=300)
 
 
