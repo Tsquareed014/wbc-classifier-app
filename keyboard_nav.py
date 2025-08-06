@@ -1,56 +1,34 @@
 # keyboard_nav.py
 import streamlit as st
-import streamlit.components.v1 as components
 
-def arrow_key_nav(
-    max_idx: int,
-    session_key: str = "current_idx",
-    input_key: str = "__keynav__",
-) -> int:
-    """
-    Capture left/right arrow key presses to navigate between indices [0…max_idx].
-    Returns the updated index stored under st.session_state[session_key].
-    """
-    # 1) Initialize session_state index if missing
-    if session_key not in st.session_state:
-        st.session_state[session_key] = 0
+def _prev(max_idx):
+    st.session_state.current_idx = max(0, st.session_state.current_idx - 1)
 
-    # 2) Hidden text_input to shuttle key events back to Python
-    _ = st.text_input(
-        "",
-        key=input_key,
-        value="",
-        label_visibility="collapsed",
-    )
+def _next(max_idx):
+    st.session_state.current_idx = min(max_idx, st.session_state.current_idx + 1)
 
-    # 3) Inject JS listener for ArrowLeft/ArrowRight
-    components.html(
-        """
-        <script>
-        document.addEventListener("keydown", (e) => {
-          if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-            const dir = e.key === "ArrowLeft" ? "prev" : "next";
-            const inp = window.parent.document.getElementById("__keynav__");
-            if (inp) {
-              inp.value = dir;
-              inp.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-          }
-        });
-        </script>
-        """,
-        height=0,
-    )
+def arrow_key_nav(max_idx: int) -> int:
+    """Returns the current index after listening for ←/→ clicks or arrow-key presses."""
+    if 'current_idx' not in st.session_state:
+        st.session_state.current_idx = 0
 
-    # 4) React to the hidden input’s value
-    nav = st.session_state.get(input_key, "")
-    if nav == "prev":
-        st.session_state[session_key] = max(0, st.session_state[session_key] - 1)
-    elif nav == "next":
-        st.session_state[session_key] = min(max_idx, st.session_state[session_key] + 1)
+    # Inject JS that forwards arrow-key presses to our hidden buttons
+    st.markdown("""
+    <script>
+      window.addEventListener('keydown', function(e) {
+        const prev = document.getElementById('prev-btn');
+        const nxt  = document.getElementById('next-btn');
+        if (!prev || !nxt) return;
+        if (e.key === 'ArrowLeft')  prev.click();
+        if (e.key === 'ArrowRight') nxt.click();
+      });
+    </script>
+    """, unsafe_allow_html=True)
 
-    # 5) Clear for the next keypress
-    st.session_state[input_key] = ""
+    # Render two invisible buttons to drive our callbacks
+    st.button("← Prev", key="prev-btn", on_click=_prev, args=(max_idx,))
+    st.button("Next →", key="next-btn", on_click=_next, args=(max_idx,))
 
-    return st.session_state[session_key]
+    return st.session_state.current_idx
+
 
