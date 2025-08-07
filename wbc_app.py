@@ -75,32 +75,32 @@ def process_image(image: Image.Image, filename: str):
     arr, orig = preprocess_image(image, normalization=normalization)
     tensor = tf.convert_to_tensor(arr, dtype=tf.float32)
     idx, conf, _ = classify_image(model, tensor)
-    if conf < confidence_slider.threshold:
-        return None
-    label    = CLASS_LABELS[idx]
-    saliency = generate_saliency_map(model, tensor, idx)
-    return {
-        "Filename":   filename,
-        "Prediction": label,
-        "Confidence": conf,
-        "Original":   orig,
-        "Saliency":   saliency
-    }
+    return idx, conf, orig, generate_saliency_map(model, tensor, idx)
 
 results = []
 
-# URL‐based image
+# -- URL‐based image
 if image_url:
     try:
         img = load_image_from_url(image_url)
-        r = process_image(img, image_url)
-        if r: results.append(r)
+        idx, conf, orig, sal = process_image(img, image_url)
+        if conf >= confidence_slider.threshold:
+            results.append({
+                "Filename":   image_url,
+                "Prediction": CLASS_LABELS[idx],
+                "Confidence": conf,
+                "Original":   orig,
+                "Saliency":   sal
+            })
+        else:
+            st.warning(f"Classification confidence ({conf:.2f}) below threshold "
+                       f"({confidence_slider.threshold:.2f}) for URL image.")
     except Exception:
-        st.error("Failed to load from URL.")
+        st.error("Failed to load or classify image from URL.")
 
-# Local upload
+# -- Local upload
 if uploaded_file:
-    # Use zipfile.is_zipfile to catch any zip format
+    # handle ZIPs of any mime type
     if zipfile.is_zipfile(uploaded_file):
         uploaded_file.seek(0)
         with zipfile.ZipFile(uploaded_file, "r") as z:
@@ -108,25 +108,45 @@ if uploaded_file:
                 if fname.lower().endswith((".jpg", ".jpeg", ".png")):
                     with z.open(fname) as f:
                         image = Image.open(f).convert("RGB")
-                        r = process_image(image, os.path.basename(fname))
-                        if r: results.append(r)
+                        idx, conf, orig, sal = process_image(image, fname)
+                        if conf >= confidence_slider.threshold:
+                            results.append({
+                                "Filename":   os.path.basename(fname),
+                                "Prediction": CLASS_LABELS[idx],
+                                "Confidence": conf,
+                                "Original":   orig,
+                                "Saliency":   sal
+                            })
+                        else:
+                            st.warning(f"Classification confidence ({conf:.2f}) below threshold "
+                                       f"({confidence_slider.threshold:.2f}) for {fname}.")
         uploaded_file.seek(0)
     else:
         try:
             image = Image.open(uploaded_file).convert("RGB")
-            r = process_image(image, uploaded_file.name)
-            if r: results.append(r)
+            idx, conf, orig, sal = process_image(image, uploaded_file.name)
+            if conf >= confidence_slider.threshold:
+                results.append({
+                    "Filename":   uploaded_file.name,
+                    "Prediction": CLASS_LABELS[idx],
+                    "Confidence": conf,
+                    "Original":   orig,
+                    "Saliency":   sal
+                })
+            else:
+                st.warning(f"Classification confidence ({conf:.2f}) below threshold "
+                           f"({confidence_slider.threshold:.2f}) for {uploaded_file.name}.")
         except Exception:
             st.error("Uploaded file is not a valid image or ZIP archive.")
 
-# Display results
+# -- Display results
 if results:
     df = pd.DataFrame(results)
     st.subheader("Classification Results")
     st.dataframe(df[['Filename','Prediction','Confidence']])
     export_results_to_csv(df[['Filename','Prediction','Confidence']])
 
-    if len(df)>1:
+    if len(df) > 1:
         summary = (
             df['Prediction']
             .value_counts()
@@ -143,17 +163,14 @@ if results:
     idx = st.number_input("Select Image Index", 0, len(results)-1, 0)
     sel = results[idx]
 
-    # Original
+    # Show original
     buf = BytesIO()
     sel["Original"].save(buf, format="PNG")
     b64 = base64.b64encode(buf.getvalue()).decode()
     st.markdown(f'<img src="data:image/png;base64,{b64}" width="300">', unsafe_allow_html=True)
 
-    # Saliency overlay
+    # Show overlay
     overlay = overlay_saliency(np.array(sel["Original"]), sel["Saliency"])
     st.image(overlay, caption="Saliency Map", width=300)
 
 st.sidebar.write(f"Memory Usage: {monitor_memory_usage():.2f} MB")
-
-
-
