@@ -31,7 +31,7 @@ A Streamlit‑based web app for classifying white blood cell (WBC) images using 
 | **Adjustable text size**      | 🔲 On hold     | Add Streamlit slider and dynamic CSS injection       |
 | **Keyboard navigation**       | 🔲 On hold     | Implement tabindex order and key bindings            |
 | **Login / authentication**    | 🔲 Not started | Token‑based gating via `st.secrets`                  |
-| **Automated tests (pytest)**  | 🔲 In Progress | Coverage ~30%; aim ≥80%                              |
+| **Automated tests (pytest)**  | ✅ Complete     | Coverage ~80%                                       |
 | **Performance tuning**        | ✅ Complete    | Increase recall and accuracy                         |
 
 ---
@@ -119,8 +119,7 @@ streamlit run wbc_app_corrected.py   --server.port 8501   --server.headless true
 1. **Adjustable text**: Add a Streamlit slider for dynamic font sizing.  
 2. **Keyboard navigation**: Ensure all controls are reachable via Tab/Enter (WCAG 2.1).  
 3. **Login capability**: Implement token‑based gating using `st.secrets`.  
-4. **pytest suite**: Expand to cover ingestion, preprocessing, prediction, and visualization—target ≥80% coverage.  
-5. **Performance tuning**: Improve Accuracy and Recall, optimize batch handling.
+
 
 ---
 
