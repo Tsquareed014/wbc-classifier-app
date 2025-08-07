@@ -1,5 +1,4 @@
 # .github/workflows/pytest.yml
-
 name: Pytest
 
 on:
@@ -28,6 +27,5 @@ jobs:
 
       - name: Run pytest
         env:
-          # Ensure the repository root is in PYTHONPATH
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}  # Ensure repo root is in path
         run: pytest --maxfail=1 --disable-warnings -q
