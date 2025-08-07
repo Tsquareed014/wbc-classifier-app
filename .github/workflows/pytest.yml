@@ -1,4 +1,5 @@
 # .github/workflows/pytest.yml
+
 name: Pytest
 
 on:
@@ -27,6 +28,6 @@ jobs:
 
       - name: Run pytest
         env:
-          # Make repo root importable so tests can find your modules
+          # Ensure the repository root is in PYTHONPATH
           PYTHONPATH: ${{ github.workspace }}
         run: pytest --maxfail=1 --disable-warnings -q
