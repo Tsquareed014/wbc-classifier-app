@@ -22,10 +22,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # Adjust path to your requirements.txt inside the nested folder
+          pip install -r wbc-classifier-app/requirements.txt
           pip install pytest
 
-      - name: Run pytest
+      - name: Run tests
+        working-directory: wbc-classifier-app/wbc-classifier-app
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          # Point PYTHONPATH at the folder containing your modules
+          PYTHONPATH: ${{ github.workspace }}/wbc-classifier-app/wbc-classifier-app
         run: pytest --maxfail=1 --disable-warnings -q
