@@ -28,11 +28,11 @@ A Streamlit‑based web app for classifying white blood cell (WBC) images using 
 | **Saliency visualization**    | ✅ Complete    | Fine‑tune color overlay                              |
 | **Batch/ZIP processing**      | ✅ Complete    | Bulk inference performance tuning                    |
 | **Export results to CSV**     | ✅ Complete    | —                                                    |
-| **Adjustable text size**      | 🔲 In progress | Add Streamlit slider and dynamic CSS injection       |
-| **Keyboard navigation**       | 🔲 In progress | Implement tabindex order and key bindings            |
+| **Adjustable text size**      | 🔲 On hold     | Add Streamlit slider and dynamic CSS injection       |
+| **Keyboard navigation**       | 🔲 On hold     | Implement tabindex order and key bindings            |
 | **Login / authentication**    | 🔲 Not started | Token‑based gating via `st.secrets`                  |
 | **Automated tests (pytest)**  | 🔲 Partial     | Coverage ~30%; aim ≥80%                              |
-| **Performance tuning**        | 🔲 Not started | Increase recall and accuracy                         |
+| **Performance tuning**        | ✅ Complete    | Increase recall and accuracy                         |
 
 ---
 
