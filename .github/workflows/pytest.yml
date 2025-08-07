@@ -25,7 +25,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest
 
-      - name: Run pytest
-        env:
-          PYTHONPATH: ${{ github.workspace }}  # Ensure repo root is in path
-        run: pytest --maxfail=1 --disable-warnings -q
+      - name: Run tests
+        run: python run_tests.py
